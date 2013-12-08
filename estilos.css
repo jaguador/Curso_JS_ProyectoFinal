@@ -1,0 +1,10 @@
+#userinfo {color: gray; text-align:right}
+h1 {text-align:center; color: black;}
+div .listaAppActivas{color: blue; cursor: pointer; display: inline-block;}
+div .listaAppCaducadas{color: darkred; display: inline-block;}
+div .listaAppSolicitudes{color: gray; display: inline-block;}
+#tabs li .ui-icon-close { float: left; margin: 0.4em 0.2em 0 0; cursor: pointer; }
+.ui-button,  .ui-button-text .ui-button{font-size: 10px !important; }
+
+#wrapperLogin {text-align: center;}
+.cuadroUsuario {border-radius: 10px; width: 20; height: 80px; line-height: 30px; background: #2D86CC; color: #FFF;  opacity: 0.33;}

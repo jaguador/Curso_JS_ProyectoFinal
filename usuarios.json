@@ -1,0 +1,6 @@
+[{"usuario": "3556", "password": "3556", "aplicaciones": [{"numero": "81", "caducidad": "23/11/2014"}, {"numero": "100", "caducidad": "10/12/2014"}, {"numero": "135", "caducidad": "20/01/2014"}, {"numero": "844", "caducidad": "10/11/2013"}]},
+{"usuario": "7441", "password": "7441", "aplicaciones": [{"numero": "135", "caducidad": "23/11/2014"}, {"numero": "250", "caducidad": "20/01/2014"}, {"numero": "844", "caducidad": "10/11/2014"}, {"numero": "112", "caducidad": "11/07/2014"}]}, 
+{"usuario": "5419", "password": "5419", "aplicaciones": [{"numero": "81", "caducidad": "23/11/2014"}]}, 
+{"usuario": "0197", "password": "0197", "aplicaciones": [{"numero": "135", "caducidad": "20/01/2014"}, {"numero": "844", "caducidad": "10/11/2013"}]},
+{"usuario": "admin", "password": "admin", "aplicaciones": []}
+]
