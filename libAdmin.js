@@ -1,30 +1,27 @@
 /************************************************
-* libApp.js: Libreria javasript de app.html   *
+* libAdmin.js: Libreria javasript de admin.html *
 * Proyecto Curso Cliente-Servidor Javascript	*
 * Julio Aguado Robles							*
 * Alumno: al10788								*
 ************************************************/
 
-// Objeto de clase Usuario
+// Objeto de clase Admin
 var admin;
 
-// Clase Usuario
+// Clase Admin
 function Admin(nombre) {
-	this.nombre = nombre;
-	this.usuariosOnline = new Array();	// Lista de aplicaciones activas, caducadas y solicitudes
+	this.nombre = nombre;	// Nombre
+	this.usuariosOnline = new Array();	// Lista de usuarios online
 	this.peticiones = new Array();		// Lista de peticiones pendientes de atender
 	
-	this.addUsuarioOnline = addUsuarioOnline;		// Tomar en array apps la lista de aplicaciones disponibles del usuario
-	this.delUsuarioOnline = delUsuarioOnline;		// Tomar en array apps la lista de aplicaciones disponibles del usuario
-	this.addPeticion = addPeticion;		// Tomar en array apps la lista de aplicaciones disponibles del usuario
+	this.addUsuarioOnline = addUsuarioOnline;		// Añadir un usuario online
+	this.delUsuarioOnline = delUsuarioOnline;		// Eliminar un usuario online
+	this.addPeticion = addPeticion;		// Añadir una nueva peticion
 }
-
 // Añadir objeto de usuario como usuario conectado {usuario: ..., conectado: ...}
 function addUsuarioOnline(data) {
-//	for (var i in data) 
-		this.usuariosOnline[this.usuariosOnline.length] = data;
+	this.usuariosOnline[this.usuariosOnline.length] = data;
 }
-
 // Eliminar un usuario conectado de la lista
 function delUsuarioOnline(usuario) {
 	for (var i in this.usuariosOnline)  {
@@ -33,22 +30,32 @@ function delUsuarioOnline(usuario) {
 		}
 	}
 }
-
 // Toma la lista de peticiones pendientes incluidas en el array data 
 function addPeticion(data) {
-//	for (var i in data) 
-		this.peticiones[this.peticiones.length] = data;
+	this.peticiones[this.peticiones.length] = data;
+}
+// Eliminar un usuario conectado de la lista
+function delPeticion(usuario, aplicacion, tipo) {
+	for (var i in this.peticiones)  {
+		if (this.peticiones[i].usuario == usuario && this.peticiones[i].aplicacion == aplicacion && this.peticiones[i].tipo == tipo) {
+			this.peticiones.splice(i, 1);
+		}
+	}
 }
 
-/* CAMBIAR TODOS LOS ALERTS POR UN DIV GENERICO CON TEXTO DINAMICO */
+
+// Muestra mensaje de alerta con titulo, texto y llama a la funcion callback si se especifica
 function alerta(titulo, texto, callback) {
+	// Si ya hay un dialogo abierto se cierra
 	if ($('#dlgInformacion').is(":visible"))
 		$('#dlgInformacion').dialog('close')
+	// Titulo y texto del dialogo
 	$( "#dlgInformacion" ).attr('title', titulo);
 	$( "#dlgInformacion" ).html('<p>'+texto+'</p>');
 	$( "#dlgInformacion" ).dialog({
 	  modal: true,
 	  width: 400,
+	  // Antes de cerrar se ejecuta callback si se especifica
 	  beforeClose: function (event, ui) {
 		if (callback != undefined) 
 			callback();
@@ -56,6 +63,7 @@ function alerta(titulo, texto, callback) {
 	});
 } 
 
+// Fija las acciones para los botones de desconectar usuarios
 function fijarBotonesDesconectar() {
 	// Botones de desconectar usuario
 	$(".btnDesconectar").button({
@@ -65,6 +73,7 @@ function fijarBotonesDesconectar() {
 	  text: false,
 	  label: 'Desconectar usuario'
 	});	
+	// Evento click del boton de desconectar a un usuario
 	$(".btnDesconectar").click(function (e) {	// Evento click boton desconectar usuario
 		var user = $(this)[0].id.split('_')[1]; // Usuario a desconectar
 		// Envia al servidor peticion de desconexion del usuario

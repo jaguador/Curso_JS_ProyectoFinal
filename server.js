@@ -1,55 +1,98 @@
 var fs = require('fs');		// Acceso al sistema de archivos
-var app = require('express')()
-  , server = require('http').createServer(app)
-  , io = require('socket.io').listen(server);
+var app = require('express')();		// Libreria express
+var server = require('http').createServer(app);	// Crear servidor
+var io = require('socket.io').listen(server);	// Socket escuchando en servidor
+var puerto=process.argv[2]?process.argv[2]:8080;  // Puerto
 
-
-server.listen(8080);
-console.log('Servidor ejecutandose en http://127.0.0.1:8080/');
+// Servidor escuchando en el puerto
+server.listen(puerto);
+console.log('Servidor ejecutandose en http://127.0.0.1:'+puerto+'/');
 
 // Lectura de datos estaticos para inicializacion (datos de ejemplo)
-var usuarios = require('./usuarios.json');
-var aplicaciones_json = require('./aplicaciones.json');
-var aplicaciones_array = new Array();
-for (var i in aplicaciones_json)    // Transformar json a array para búsquedas
-	aplicaciones_array[aplicaciones_json[i].aplicacion] = aplicaciones_json[i].literal;
-var solicitudesBaja = new Array();
-var solicitudesAlta = new Array();
-var solicitudesRenovar = new Array();	
-var userSockets = new Array();
-	
+var usuarios = require('./usuarios.json');		// Listado de usuarios
+var aplicaciones_json = require('./aplicaciones.json'); 	// Listado de aplicaciones
+
 // Lectura de los html estaticos	
 var loginWeb = fs.readFileSync('./login.html','utf-8');
 var appWeb = fs.readFileSync('./user.html','utf-8');
 var adminWeb = fs.readFileSync('./admin.html','utf-8');
 var aplicaconTplWeb = fs.readFileSync('./aplicacion_tpl.html','utf-8');
-	
-// Tiempo de validez de sesion (milisegundos)
+
+// Transformar json a array para búsquedas
+var aplicaciones_array = new Array();
+for (var i in aplicaciones_json)    
+	aplicaciones_array[aplicaciones_json[i].aplicacion] = aplicaciones_json[i].literal;
+
+// Arrays para las solicitudes de altas, renovaciones y bajas
+var solicitudesBaja = new Array();
+var solicitudesAlta = new Array();
+var solicitudesRenovar = new Array();	
+
+// Array para guardar los sockets de los usuarios
+var userSockets = new Array();
+		
+// Tiempo de validez de sesion (timeout)
 var timeout = 900000;   // 15 minutos
 
+/*  FUNCION AUXILIAR PARA VALIDAR USUARIO CONECTADO (ENTRADA POR LOGIN) */
+function validarUsuario(user) {
+	var resultado = {};
+	resultado.auth = false;
+	resultado.msg = "Acceso Denegado: No se ha encontrado el usuario. <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
+	resultado.indice = -1;
+	// Buscar el usuario
+	for (var i in usuarios) {
+		if (usuarios[i].usuario == user) {
+			resultado.indice = i;
+			// No tiene establecida la propiedad autorizado --> no ha entrado por login
+			if (usuarios[i].autorizado == undefined)
+				resultado.msg = "Acceso denegado: No se ha autorizado el acceso. <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
+			else {
+				// Tiene la propiedad establecida a false
+				if (usuarios[i].autorizado == false) 
+					resultado.msg = "Acceso denegado: No se ha autorizado el acceso.  <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
+				else {
+					// Superado timeout establecido desde el ultimo acceso
+					var tiempo = Date.now() - usuarios[i].ultimoAcceso;
+					if (tiempo > timeout)
+						resultado.msg = "Acceso denegado: Se ha superado el tiempo de inactividad.  <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
+					else
+						resultado.auth = true;
+				}
+			}
+			break;
+		}
+	}	
+	return resultado;
+}
 
-/* SOCKET */
-io.sockets.on('connection', function (socket) {
+
+/* INICIALIZACION DEL SOCKET: NUEVA CONEXION */
+io.sockets.on('connection', function (socket) {	
+	
 	// Tomar el socket segun el nombre de usuario
 	socket.on('setUsuario', function (usuario) {
+		// Comprobar que es conexion valida (ha hecho login)
 		var autorizacion = validarUsuario(usuario);
-		console.log('autorizacion: '+autorizacion.auth);
+		// Si es valida se guarda socket y se comunica al admin si esta conectado
 		if (autorizacion.auth) {
 			userSockets[usuario] = socket;
 			socket.usuario = usuario;
 			if (userSockets['admin'] != undefined) 
-				userSockets['admin'].emit('nuevaConexion', usuario);	
-		} else {
+				userSockets['admin'].emit('nuevaConexion', usuario);  // Mensaje de nueva conexion al admin
+		}
+		// Si no es acceso autorizado se comunica y redirecciona a pantalla login		
+		else {
 			var datos = {msg: 'Acceso no autorizado', url: '/'};
 			socket.emit('desconectar', datos);
 		}
-		console.log('------- conectado: '+usuario);
-  });
+	});
   
-	// Borrar el socket y desautorizar al usuario al desconectar
+	// Cuando se desconecta: Borrar el socket y desautorizar al usuario al desconectar
 	socket.on('disconnect', function() { 
-		console.log('------- desconectado: '+socket.usuario);
+		// Comprobar que es conexion valida (ha hecho login)
 		var autorizacion = validarUsuario(socket.usuario);
+		// Si es valida se elimina el socket del usuario y se comunica desconexion al admiin
 		if (autorizacion.auth) {
 			var i = autorizacion.indice;
 			usuarios[i].autorizado = false;
@@ -57,15 +100,13 @@ io.sockets.on('connection', function (socket) {
 			delete userSockets[socket.usuario]; 
 			console.log('desconectado: '+socket.usuario);	
 			if (userSockets['admin'] != undefined) 
-				userSockets['admin'].emit('nuevaDesconexion', socket.usuario);	
+				userSockets['admin'].emit('nuevaDesconexion', socket.usuario);	 // Mensaje de desconexion al admin
 		}
 	}); 
 });
 
 
-
-
-	
+/**************** GET ************************/
 /* SERVIR RECURSOS */
 app.get('/recursos/:page', function (req, res) {
 	// Verificar servir solo los recursos permitidos
@@ -90,76 +131,63 @@ app.get('/recursos/:page', function (req, res) {
 		default:
 			allow = false;
 	}
+	// Si se permite se sirve
 	if (allow) {
 		var recurso = fs.readFileSync(req.params.page);
 		res.send(recurso);
 	}
 });
 
-/* PORTADA */
+/* ACCESO A PORTADA: PANTALLA DE LOGIN DE USUARIO */
 app.get('/', function (req, res) { 
-    res.send(loginWeb);
+    // Servir html de login
+	res.send(loginWeb);
 });
 
-/* PORTADA */
+/* PLANTILLA COMUN DE APLICACION (TABS)*/
 app.get('/aplicacion_tpl', function (req, res) { 
-    res.send(aplicaconTplWeb);
+    // Servir html de plantilla
+	res.send(aplicaconTplWeb);
 });
 
-/* LISTADO DE USUARIOS */
+/* OBTENER LISTADO DE TODOS LOS USUARIOS */
 app.get('/usuarios', function (req, res) {   
     res.contentType('application/json');
+	// Recorrer el json y crear un array de usuarios
 	var users = new Array();
 	for (var i in usuarios) {
 		// Filtrar usuario administrador
 		if (usuarios[i].usuario != 'admin')
-		users[i] = {usuario: usuarios[i].usuario};
+			users[i] = {usuario: usuarios[i].usuario};
 	}
+	// Servir array
     res.send( { usuarios:  users } );
 });
 
-/* LISTADO DE APLICACIONES */
+/* OBTENER LISTADO DE TODAS LAS APLICACIONES */
 app.get('/aplicaciones', function (req, res) {   
-    res.send( aplicaciones_json );
+    // Servir json de aplicaciones
+	res.send(aplicaciones_json);
 });
-
-/* VALIDACION DE USUARIO Y CONTRASEÑA */
-app.post('/login/:usuario/:password', function (req, res) {
-	var auth = false;
-	for (var i in usuarios) {
-		if (usuarios[i].usuario == req.params.usuario) {
-			if (usuarios[i].password == req.params.password) {
-				auth = true;
-				usuarios[i].autorizado = auth;
-				usuarios[i].ultimoAcceso = Date.now();
-			} else {
-				usuarios[i].autorizado = false;
-			}
-		}
-	}	
-	if (req.params.usuario == "admin")
-		res.send({resultado: auth, url: '/admin/'+req.params.usuario});
-	else
-		res.send({resultado: auth, url: '/app/'+req.params.usuario});
-
-});
-
 
 /* ACCESO AL PANEL DE ADMINISTRACION */
 app.get('/admin/:usuario', function (req, res) {   
+	// Si esta autorizado se sirve html del panel de administracion
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (autorizacion.auth)
 	    res.send(adminWeb);
+	// Si no esta autorizado se indica
 	else
 	    res.send(autorizacion.msg);
 });
 
-
-/* LISTADO DE USUARIOS CONECTADOS */
+/* OBTENER LISTADO DE USUARIOS CONECTADOS */
 app.get('/usuariosonline', function (req, res) {   
+	// Recorrer lista de usuarios y comprobar los autorizados
 	var online = new Array();
 	for (var i in usuarios) {
 		if (usuarios[i].autorizado != undefined) {
+			// Si esta autorizado el acceso se añade
 			if (usuarios[i].autorizado == true) {
 				online[online.length] = {usuario: usuarios[i].usuario, conectado: usuarios[i].ultimoAcceso};
 			}
@@ -168,54 +196,63 @@ app.get('/usuariosonline', function (req, res) {
 	res.send(online);
 });
 
-/* LISTADO DE PETICIONES PENDIENTES DE ATENDER */
+/* OBTENER LISTADO DE PETICIONES PENDIENTES DE ATENDER */
 app.get('/peticionespendientes', function (req, res) { 
 	var solicitudes = new Array();
+	// Solicitudes de baja
 	for (var i in solicitudesBaja) 
 		solicitudes[solicitudes.length] = {usuario: solicitudesBaja[i].usuario, aplicacion: solicitudesBaja[i].aplicacion, literal: aplicaciones_array[solicitudesBaja[i].aplicacion], tipo: 'Baja'};
+	// Solicitudes de alta
 	for (var i in solicitudesAlta) 
 		solicitudes[solicitudes.length] = {usuario: solicitudesAlta[i].usuario, aplicacion: solicitudesAlta[i].aplicacion, literal: aplicaciones_array[solicitudesAlta[i].aplicacion], tipo: 'Alta'};
+	// Solicitudes de renovacion
 	for (var i in solicitudesRenovar) 
 		solicitudes[solicitudes.length] = {usuario: solicitudesRenovar[i].usuario, aplicacion: solicitudesRenovar[i].aplicacion, literal: aplicaciones_array[solicitudesRenovar[i].aplicacion], tipo: 'Renovacion'};
 	res.send(solicitudes);
 });
 
-/* ACCESO A LA WEB APLICACION */
+/* ACCESO A LA WEB DE USUARIO */
 app.get('/app/:usuario', function (req, res) {   
+	// Comprobar si esta autorizado al acceso se sirve
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (autorizacion.auth)
 	    res.send(appWeb);
+	// Si no esta autorizado se indica
 	else {
-		console.log(autorizacion.msg);
 		var datos = {msg: 'Acceso no autorizado', url: '/'};
-//		userSockets[req.params.usuario].emit('desconectar', datos);
 	    res.send(autorizacion.msg);
 	}
 });
 
-/* LISTADO DE APLICACIONES DISPONIBLES DEL USUARIO */
+/* OBTENER LISTADO DE APLICACIONES DISPONIBLES DEL USUARIO */
 app.get('/aplicacionesusuario/:usuario', function (req, res) {  
+	// Comprobar si esta autorizado
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send(autorizacion.msg);
+	// Si esta autorizado
 	else {	
 		var listaApps = new Array();
 		res.contentType('application/json');
+		// Buscar el usuario
 		for (var i in usuarios) {
 			if (usuarios[i].usuario == req.params.usuario) {
+				// Añadir aplicaciones con acceso
 				for (var j in usuarios[i].aplicaciones) {
 					listaApps[j] = usuarios[i].aplicaciones[j];
 					listaApps[j].literal = aplicaciones_array[listaApps[j].numero];
 				}
-				// Añadir peticiones pendientes
+				// Añadir peticiones pendientes de alta
 				for (var j in solicitudesAlta) {
 					if (solicitudesAlta[j].usuario == usuarios[i].usuario) 
 						listaApps[listaApps.length] = {numero: solicitudesAlta[j].aplicacion, literal:aplicaciones_array[solicitudesAlta[j].aplicacion], caducidad: new Date(), peticion: 'Alta'};
 				}
+				// Añadir peticiones pendientes de baja
 				for (var j in solicitudesBaja) {
 					if (solicitudesBaja[j].usuario == usuarios[i].usuario) 
 						listaApps[listaApps.length] = {numero: solicitudesBaja[j].aplicacion, literal:aplicaciones_array[solicitudesBaja[j].aplicacion], caducidad: new Date(), peticion: 'Baja'};
 				}
+				// Añadir peticiones pendientes de renovacion
 				for (var j in solicitudesRenovar) {
 					if (solicitudesRenovar[j].usuario == usuarios[i].usuario) 
 						listaApps[listaApps.length] = {numero: solicitudesRenovar[j].aplicacion, literal:aplicaciones_array[solicitudesRenovar[j].aplicacion], caducidad: new Date(), peticion: 'Renovacion'};
@@ -227,38 +264,75 @@ app.get('/aplicacionesusuario/:usuario', function (req, res) {
 	}
 });
 
-/* SOLICITAR BAJA DE UNA APLICACION */
+
+
+/***************** POST **********************/
+/* PETICION DE ACCESO AL SISTEMA: LOGIN */
+app.post('/login/:usuario/:password', function (req, res) {
+	var auth = false;
+	// Localizar usuario
+	for (var i in usuarios) {
+		// Comprobar usuario y contraseña y establecer propiedad autorizado
+		if (usuarios[i].usuario == req.params.usuario) {
+			if (usuarios[i].password == req.params.password) {
+				auth = true;
+				usuarios[i].autorizado = auth;
+				usuarios[i].ultimoAcceso = Date.now();
+			} else {
+				usuarios[i].autorizado = false;
+			}
+		}
+	}	
+	// Redireccion usuario admin --> web admin
+	if (req.params.usuario == "admin")
+		res.send({resultado: auth, url: '/admin/'+req.params.usuario});
+	// Redireccion usuario --> web usuario
+	else
+		res.send({resultado: auth, url: '/app/'+req.params.usuario});
+});
+
+/* REGISTRAR SOLICITUD DE BAJA DE UNA APLICACION */
 app.post('/solicitarbaja/:usuario/:aplicacion', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false, mensaje: autorizacion.msg});
+	// Autorizado
 	else {	
+		// Guarda solicitud de baja y envia la confirmacion
 		solicitudesBaja[solicitudesBaja.length] = {usuario: req.params.usuario, aplicacion: req.params.aplicacion};
 		res.send({resultado: true, mensaje: "Se ha guardado la solicitud de baja. Queda pendiente de revisar por el administrador", aplicacion: req.params.aplicacion, literal: aplicaciones_array[req.params.aplicacion]+" (Baja)"});
+
+		// Si el administrador esta conectado se le comunica la nueva peticion
 		if (userSockets['admin'] != undefined) 
 			userSockets['admin'].emit('nuevapeticion', {usuario: req.params.usuario, aplicacion: req.params.aplicacion, literal: aplicaciones_array[req.params.aplicacion], tipo: 'Baja'});	
 	}
 });
 
-/* SOLICITAR ALTA EN UNA APLICACION */
+/* REGISTRAR SOLICITUD DE ALTA DE UNA APLICACION */
 app.post('/solicitaralta/:usuario/:aplicacion', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false, mensaje: autorizacion.msg});
+	// Autorizado
 	else {	
 		var txt = "";
 		var result = false;
 		var i = autorizacion.indice;
+		// Comprueba si tiene ya acceso
 		for (var j in usuarios[i].aplicaciones) {
 			if (usuarios[i].aplicaciones[j].numero == req.params.aplicacion)
 				txt = "El usuario ya tiene acceso a la aplicación seleccionada. No se ha registrado la petición";
 		}
 		if (txt == "") {
+			// Comprueba si ya tiene la solicitud
 			for (var j in solicitudesAlta) {
 				if (solicitudesAlta[j].usuario == req.params.usuario && solicitudesAlta[j].aplicacion == req.params.aplicacion)
 					txt = "El usuario ya tiene registrada una solicitud de acceso a la aplicación";
 			}
 		}
+		// Si no hay problema se registra la solicitud y se envia el resultado
 		if (txt == "") {
 			solicitudesAlta[solicitudesAlta.length] = {usuario: req.params.usuario, aplicacion: req.params.aplicacion};
 			txt = "Se ha guardado la solicitud de acceso a nueva aplicacion. Queda pendiente de revisar por el administrador";
@@ -266,43 +340,49 @@ app.post('/solicitaralta/:usuario/:aplicacion', function (req, res) {
 		}
 		res.send({resultado: result, mensaje: txt, aplicacion: req.params.aplicacion, literal: aplicaciones_array[req.params.aplicacion]+" (Alta)"});
 
+		// Si el administrador esta conectado se le comunica la nueva peticion
 		if (userSockets['admin'] != undefined) 
 			userSockets['admin'].emit('nuevapeticion', {usuario: req.params.usuario, aplicacion: req.params.aplicacion, literal: aplicaciones_array[req.params.aplicacion], tipo: 'Alta'});	
-
-		//res.send(txt);
 	}
 });
 
-/* SOLICITAR RENOVACION EN UNA APLICACION */
+/* REGISTRAR SOLICITUD DE RENOVACION DE UNA APLICACION */
 app.post('/solicitarrenovacion/:usuario/:aplicacion', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false, mensaje: autorizacion.msg});
+	// Autorizado
 	else {	
+		// Registrar la solicitud
 		solicitudesRenovar[solicitudesRenovar.length] = {usuario: req.params.usuario, aplicacion: req.params.aplicacion};
 		res.send({resultado: true, mensaje: "Se ha guardado la solicitud de renovacion de acceso a la aplicacion. Queda pendiente de revisar por el administrador", aplicacion: req.params.aplicacion, literal: aplicaciones_array[req.params.aplicacion]+" (Renovacion)"});
+
+		// Si el administrador esta conectado se le comunica la nueva peticion
 		if (userSockets['admin'] != undefined) 
 			userSockets['admin'].emit('nuevapeticion', {usuario: req.params.usuario, aplicacion: req.params.aplicacion, literal: aplicaciones_array[req.params.aplicacion], tipo: 'Renovacion'});	
 	}
 });
 
-/* SOLICITAR DESCONEXION DE LA APLICACION (VUELVE A PANTALLA LOGIN) */
-app.post('/desconectar/:usuario', function (req, res) {  
+/* SOLICITAR DESCONEXION DEL PROPIO USUARIO (VUELVE A PANTALLA LOGIN) */
+app.post('/desconectar/:usuario', function (req, res) {  	
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false});
 	else {	
-/*		var i = autorizacion.indice;
-		usuarios[i].autorizado = false;
-		usuarios[i].ultimoAcceso = Date.now();
-		delete userSockets[req.params.usuario]; 
-		console.log('desconectado: '+req.params.usuario);*/
+		// Establece la propiedad autorizado a false
+		for (var i in usuarios) 
+			if (usuarios[i].usuario == req.params.usuario) 
+				usuarios[i].autorizado = false;
+		// Redirecciona a pantalla de login
 		res.send({resultado: true, url: '/'});
 	}
 });
 
 /* CONFIRMAR PETICION DE USUARIO POR PARTE DEL ADMINISTRADOR */
 app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false});
@@ -311,15 +391,19 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 		var aplicacion = req.params.aplicacion;
 		var tipo = req.params.tipo;
 		var enviada = false;
+		// Actuar segun el tipo de de peticion
 		switch (tipo) {
 			case "Alta" :   
 				// Localizar la solicitud de alta y eliminar
 				for (var i in solicitudesAlta) {
 					if (solicitudesAlta[i].usuario == usuario && solicitudesAlta[i].aplicacion == aplicacion) {
+						// Fijar fecha de caducidad a 1 año posterior
 						var fecha = new Date();    
-						fecha.setFullYear(fecha.getFullYear() + 1);  // Fijar fecha de caducidad a 1 año posterior
+						fecha.setFullYear(fecha.getFullYear() + 1);  
 						var fechatxt = fecha.getDate()+"/"+parseInt(fecha.getMonth()+1)+"/"+fecha.getFullYear();
+						// Comunicar al usuario la aceptacion de la peticion
 						userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion], caducidad: fechatxt}); 
+						// Eliminar la solicitud de alta del array
 						solicitudesAlta.splice(i, 1);
 						enviada = true;
 						// Añadir la aplicacion como activa para el usuario
@@ -333,7 +417,9 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				// localizar la solicitud de baja y eliminar
 				for (var i in solicitudesBaja) {
 					if (solicitudesBaja[i].usuario == usuario && solicitudesBaja[i].aplicacion == aplicacion) {
+						// Comunicar al usuario la aceptacion de la peticion
 						userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						// Eliminar la solicitud de baja del array
 						solicitudesBaja.splice(i, 1);
 						enviada = true;
 						// Eliminar la aplicacion de la lista de aplicaciones activas del usuario
@@ -349,10 +435,13 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				// Localizar la solicitud de renovar y eliminar
 				for (var i in solicitudesRenovar) {
 					if (solicitudesRenovar[i].usuario == usuario && solicitudesRenovar[i].aplicacion == aplicacion) {
+						// Fijar fecha de caducidad a 1 año posterior
 						var fecha = new Date();    
-						fecha.setFullYear(fecha.getFullYear() + 1);  // Fijar fecha de caducidad a 1 año posterior
+						fecha.setFullYear(fecha.getFullYear() + 1);  
 						var fechatxt = fecha.getDate()+"/"+parseInt(fecha.getMonth()+1)+"/"+fecha.getFullYear();
+						// Comunicar al usuario la aceptacion de la peticion
 						userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion], caducidad: fechatxt}); 
+						// Eliminar la solicitud de renovacion del array
 						solicitudesRenovar.splice(i, 1);
 						enviada = true;
 						// Modificar la fecha de caducidad de la aplicacion
@@ -371,6 +460,7 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 
 /* DENEGAR PETICION DE USUARIO POR PARTE DEL ADMINISTRADOR */
 app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false});
@@ -379,22 +469,27 @@ app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 		var aplicacion = req.params.aplicacion;
 		var tipo = req.params.tipo;
 		var enviada = false;
+		// Segun el tipo de peticion
 		switch (tipo) {
 			case "Alta" :   
 				// Localizar la solicitud de alta y eliminar
 				for (var i in solicitudesAlta) {
 					if (solicitudesAlta[i].usuario == usuario && solicitudesAlta[i].aplicacion == aplicacion) {
+						// Comunicar al usuario la denegacion de la peticion
 						userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						// Eliminar la solicitud del array
 						solicitudesAlta.splice(i, 1);
 						enviada = true;
 					}
 				}
 				break;
 			case "Baja" :  
-				// localizar la solicitud de baja y eliminar
+				// Localizar la solicitud de baja y eliminar
 				for (var i in solicitudesBaja) {
 					if (solicitudesBaja[i].usuario == usuario && solicitudesBaja[i].aplicacion == aplicacion) {
+						// Comunicar al usuario la denegacion de la peticion
 						userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						// Eliminar la solicitud del array 
 						solicitudesBaja.splice(i, 1);
 						enviada = true;
 					}
@@ -404,7 +499,9 @@ app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				// Localizar la solicitud de renovar y eliminar
 				for (var i in solicitudesRenovar) {
 					if (solicitudesRenovar[i].usuario == usuario && solicitudesRenovar[i].aplicacion == aplicacion) {
+						// Comunicar al usuario la denegacion de la peticion
 						userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						// eliminar la solicitud del array
 						solicitudesRenovar.splice(i, 1);
 						enviada = true;
 					}
@@ -415,15 +512,15 @@ app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 	}
 });
 
-
-
-/* DESCONEXION DE USUARIO POR PARDE DE ADMINISTRADOR */
+/* DESCONEXION DE USUARIO POR PARTE DE ADMINISTRADOR */
 app.post('/forzardesconectar/:usuario/:msg', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false});
 	else {	
 		var datos = {msg: req.params.msg, url: '/'};
+		// Comunicar al usuario la desconexion
 		userSockets[req.params.usuario].emit('desconectar', datos); 
 		res.send({resultado: true, url: '/'});
 	}
@@ -431,40 +528,14 @@ app.post('/forzardesconectar/:usuario/:msg', function (req, res) {
 
 /* ENVIAR MENSAJE A USUARIO */
 app.post('/mensaje/:usuario/:msg', function (req, res) {  
+	// Confirmar usuario autorizado por login
 	var autorizacion = validarUsuario(req.params.usuario);
 	if (!autorizacion.auth)
 	    res.send({resultado: false});
 	else {	
+		// Comunicar al usuario el mensaje
 		userSockets[req.params.usuario].emit('mensaje', req.params.msg); 
 		res.send({resultado: true});
 	}
 });
-
-function validarUsuario(user) {
-	var resultado = {};
-	resultado.auth = false;
-	resultado.msg = "Acceso Denegado: No se ha encontrado el usuario. <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
-	resultado.indice = -1;
-	for (var i in usuarios) {
-		if (usuarios[i].usuario == user) {
-			resultado.indice = i;
-			if (usuarios[i].autorizado == undefined)
-				resultado.msg = "Acceso denegado: No se ha autorizado el acceso. <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
-			else {
-				if (usuarios[i].autorizado == false) 
-					resultado.msg = "Acceso denegado: No se ha autorizado el acceso.  <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
-				else {
-					var tiempo = Date.now() - usuarios[i].ultimoAcceso;
-					if (tiempo > timeout)
-						resultado.msg = "Acceso denegado: Se ha superado el tiempo de inactividad.  <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
-					else
-						resultado.auth = true;
-				}
-			}
-			break;
-		}
-	}	
-	return resultado;
-}
-
 
