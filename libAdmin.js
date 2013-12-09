@@ -6,7 +6,7 @@
 ************************************************/
 
 // Puerto de conexion
-var port = 8080; 
+var port = process.env.PORT || 8080; 
 
 // Objeto de clase Admin
 var admin;
