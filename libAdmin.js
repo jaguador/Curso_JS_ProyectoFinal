@@ -279,6 +279,11 @@ function initAdmin() {
 	// Crear socket y escuchar en 
 	creaSocket(admin.nombre);
 	
+	// Mostrar informacion de direccion y puerto donde se ejecuta el servidor
+	$.get('/puerto', function(data) {
+		$('#infoServer').html('Servidor ejecutandose en: '+window.location.hostname+':'+data.p);
+	});
+
 	// Informacion de admin y boton de desconectar sesion
 	$('#userinfo').html("Usuario: <b>"+admin.nombre+"</b> &nbsp;&nbsp;<button id='btndesconectar'></button>");
 	$("#btndesconectar").button({	// Boton cerrar sesion admin

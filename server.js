@@ -11,6 +11,7 @@ var server = require('http').createServer(app);	// Crear servidor
 var io = require('socket.io').listen(server);	// Socket escuchando en servidor
 var puerto = process.env.PORT || 8080;
 
+
 // Servidor escuchando en el puerto
 server.listen(puerto);
 console.log('Servidor ejecutandose en http://127.0.0.1:'+puerto+'/');
@@ -140,6 +141,16 @@ app.get('/', function (req, res) {
     // Servir html de login
 	res.send(loginWeb);
 });
+
+/* ENVIAR EL PUERTO DE CONEXION */
+app.get('/puerto', function (req, res) { 
+    // Servir puerto al que se esta conectado
+    res.contentType('application/json');
+	res.send({p: puerto});
+});
+
+
+
 
 /* ACCESO AL PANEL DE ADMINISTRACION */
 app.get('/admin/:usuario', function (req, res) {   

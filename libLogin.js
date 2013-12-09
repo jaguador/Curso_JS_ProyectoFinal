@@ -7,6 +7,10 @@
 
 // Consulta al servidor (get) la lista de usuarios para mostrarlos en la pantalla de login
 function muestraUsuarios() {
+	// Mostrar informacion de direccion y puerto donde se ejecuta el servidor
+	$.get('/puerto', function(data) {
+		$('#infoServer').html('Servidor ejecutandose en: '+window.location.hostname+':'+data.p);
+	});
 	// Peticion de listado de usuarios
  	$.get('/usuarios', function(data) {
 		// Construye tabla con los nombres de usuarios

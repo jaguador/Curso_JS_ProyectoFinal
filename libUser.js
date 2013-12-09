@@ -336,6 +336,11 @@ function initUsuario() {
 	// Inicializar boton cerrar sesion de usuario
 	initBtnCerrarSesion();
 
+	// Mostrar informacion de direccion y puerto donde se ejecuta el servidor
+	$.get('/puerto', function(data) {
+		$('#infoServer').html('Servidor ejecutandose en: '+window.location.hostname+':'+data.p);
+	});
+
 	// Rellenar combo de lista de aplicaciones para dialogo de nueva aplicacion
 	$.get('/aplicaciones/', function(data) {
 		// Se recorren los resultados y añade al combo de aplicaciones disponibles
