@@ -1,3 +1,10 @@
+/************************************************
+* server.js: Codigo de servidor node.js         *
+* Proyecto Curso Cliente-Servidor Javascript	*
+* Julio Aguado Robles							*
+* Alumno: al10788								*
+************************************************/
+
 var fs = require('fs');		// Acceso al sistema de archivos
 var app = require('express')();		// Libreria express
 var server = require('http').createServer(app);	// Crear servidor
@@ -392,7 +399,8 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 						fecha.setFullYear(fecha.getFullYear() + 1);  
 						var fechatxt = fecha.getDate()+"/"+parseInt(fecha.getMonth()+1)+"/"+fecha.getFullYear();
 						// Comunicar al usuario la aceptacion de la peticion
-						userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion], caducidad: fechatxt}); 
+						if (userSockets[usuario] != undefined)
+							userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion], caducidad: fechatxt}); 
 						// Eliminar la solicitud de alta del array
 						solicitudesAlta.splice(i, 1);
 						enviada = true;
@@ -408,7 +416,8 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				for (var i in solicitudesBaja) {
 					if (solicitudesBaja[i].usuario == usuario && solicitudesBaja[i].aplicacion == aplicacion) {
 						// Comunicar al usuario la aceptacion de la peticion
-						userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						if (userSockets[usuario] != undefined)
+							userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
 						// Eliminar la solicitud de baja del array
 						solicitudesBaja.splice(i, 1);
 						enviada = true;
@@ -430,7 +439,8 @@ app.post('/confirmarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 						fecha.setFullYear(fecha.getFullYear() + 1);  
 						var fechatxt = fecha.getDate()+"/"+parseInt(fecha.getMonth()+1)+"/"+fecha.getFullYear();
 						// Comunicar al usuario la aceptacion de la peticion
-						userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion], caducidad: fechatxt}); 
+						if (userSockets[usuario] != undefined)
+							userSockets[usuario].emit('peticionconfirmada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion], caducidad: fechatxt}); 
 						// Eliminar la solicitud de renovacion del array
 						solicitudesRenovar.splice(i, 1);
 						enviada = true;
@@ -466,7 +476,8 @@ app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				for (var i in solicitudesAlta) {
 					if (solicitudesAlta[i].usuario == usuario && solicitudesAlta[i].aplicacion == aplicacion) {
 						// Comunicar al usuario la denegacion de la peticion
-						userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						if (userSockets[usuario] != undefined)
+							userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
 						// Eliminar la solicitud del array
 						solicitudesAlta.splice(i, 1);
 						enviada = true;
@@ -478,7 +489,8 @@ app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				for (var i in solicitudesBaja) {
 					if (solicitudesBaja[i].usuario == usuario && solicitudesBaja[i].aplicacion == aplicacion) {
 						// Comunicar al usuario la denegacion de la peticion
-						userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						if (userSockets[usuario] != undefined) 
+							userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
 						// Eliminar la solicitud del array 
 						solicitudesBaja.splice(i, 1);
 						enviada = true;
@@ -490,7 +502,8 @@ app.post('/denegarpeticion/:usuario/:aplicacion/:tipo', function (req, res) {
 				for (var i in solicitudesRenovar) {
 					if (solicitudesRenovar[i].usuario == usuario && solicitudesRenovar[i].aplicacion == aplicacion) {
 						// Comunicar al usuario la denegacion de la peticion
-						userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
+						if (userSockets[usuario] != undefined)
+							userSockets[usuario].emit('peticiondenegada', {tipo: tipo, aplicacion: aplicacion, literal: aplicaciones_array[aplicacion]}); 
 						// eliminar la solicitud del array
 						solicitudesRenovar.splice(i, 1);
 						enviada = true;
@@ -511,7 +524,8 @@ app.post('/forzardesconectar/:usuario/:msg', function (req, res) {
 	else {	
 		var datos = {msg: req.params.msg, url: '/'};
 		// Comunicar al usuario la desconexion
-		userSockets[req.params.usuario].emit('desconectar', datos); 
+		if (userSockets[req.params.usuario] != undefined)
+			userSockets[req.params.usuario].emit('desconectar', datos); 
 		res.send({resultado: true, url: '/'});
 	}
 });
@@ -524,8 +538,120 @@ app.post('/mensaje/:usuario/:msg', function (req, res) {
 	    res.send({resultado: false});
 	else {	
 		// Comunicar al usuario el mensaje
-		userSockets[req.params.usuario].emit('mensaje', req.params.msg); 
+		if (userSockets[req.params.usuario] != undefined)
+			userSockets[req.params.usuario].emit('mensaje', req.params.msg); 
 		res.send({resultado: true});
 	}
+});
+
+
+/***************** PUT **********************/
+/* DESCONEXION DE USUARIO/S POR PARTE DE ADMINISTRADOR EN CLIENT.JS */
+app.put('/forzardesconectar/:usuario', function (req, res) {  
+	var msg = "Desconectado por parte del administrador en linea de comandos";
+	var arrayUsuarios = new Array();   // Usuarios a desconectar
+	var lstUsuarios = new Array();
+	
+	// Si el parametro usuario es 'true' se desconectan todos
+	if (req.params.usuario == 'true' ) arrayUsuarios[0] = "";
+	// En caso contrario se especifica lista de usuarios separados por ,
+	else arrayUsuarios = req.params.usuario.split(',');   
+
+	// Recorrer los usuarios 	
+	for (var i in usuarios) {
+		var encontrado = false;
+		// Si se listan todos se mira si esta conectado
+		if (arrayUsuarios[0] == "") {
+			// Si esta online el usuario
+			if (usuarios[i].autorizado != undefined) {
+				if (usuarios[i].autorizado == true) {
+					// Si tiene creado su socket se toma
+					if (userSockets[usuarios[i].usuario] != undefined) 
+						encontrado = true;
+				}
+			}
+		} 
+		// Si se especifican usuarios se mira si el usuario esta en la lista que se pasa como parametro
+		else {
+			for (var j in arrayUsuarios) {
+				// Buscar cada usuario si esta conectado
+				if (usuarios[i].usuario == arrayUsuarios[j]) {
+					// Si esta online el usuario
+					if (usuarios[i].autorizado != undefined) {
+						if (usuarios[i].autorizado == true) {
+							// Si tiene creado su socket se toma
+							if (userSockets[usuarios[i].usuario] != undefined) {
+								encontrado = true;
+							}
+						}
+					}
+					break;
+				}
+			}
+		}
+		// Si se ha encontrado el ususario y esta conectado se emite la desconexion
+		if (encontrado) {
+			var datos = {msg: msg, url: '/'};
+			userSockets[usuarios[i].usuario].emit('desconectar', datos); 
+			lstUsuarios[lstUsuarios.length] = {nombre: usuarios[i].usuario};
+		}
+	}
+
+	// Enviar los usuarios que se han desconectado
+	res.send(lstUsuarios);
+});
+
+/* ENVIAR MENSAJE A USUARIOS POR PARTE DE ADMINISTRADOR EN CLIENT.JS */
+app.put('/enviarmensaje/:usuario/:mensaje', function (req, res) {  
+	var msg = req.params.mensaje;
+	var arrayUsuarios = new Array();   // Usuarios a los que enviar mensaje
+	var lstUsuarios = new Array();
+	
+	// Si el parametro usuario es 'true' se envia a todos
+	if (req.params.usuario == 'true' ) arrayUsuarios[0] = "";
+	// En caso contrario se especifica lista de usuarios separados por ,
+	else arrayUsuarios = req.params.usuario.split(',');   
+
+	// Recorrer los usuarios 	
+	for (var i in usuarios) {
+		var encontrado = false;
+		// Si se listan todos se mira si esta conectado
+		if (arrayUsuarios[0] == "") {
+			// Si esta online el usuario 
+			if (usuarios[i].autorizado != undefined) {
+				if (usuarios[i].autorizado == true) {
+					// Si tiene creado su socket se toma
+					if (userSockets[usuarios[i].usuario] != undefined) 
+						encontrado = true;
+				}
+			}
+		} 
+		// Si se especifican usuarios se mira si el usuario esta en la lista que se pasa como parametro
+		else {
+			for (var j in arrayUsuarios) {
+				// Buscar cada usuario si esta conectado
+				if (usuarios[i].usuario == arrayUsuarios[j]) {
+					// Si esta online el usuario 
+					if (usuarios[i].autorizado != undefined) {
+						if (usuarios[i].autorizado == true) {
+							// Si tiene creado su socket se toma
+							if (userSockets[usuarios[i].usuario] != undefined) {
+								encontrado = true;
+							}
+						}
+					}
+					break;
+				}
+			}
+		}
+		// Si se ha encontrado el ususario y esta conectado se emite la desconexion
+		if (encontrado) {
+			userSockets[usuarios[i].usuario].emit('mensaje', msg); 
+			lstUsuarios[lstUsuarios.length] = {nombre: usuarios[i].usuario};
+		}
+	}
+
+	// Enviar los usuarios a los que se ha emitido el mensaje
+	res.send(lstUsuarios);
 });
 
