@@ -99,7 +99,7 @@ function initBtnCerrarSesion() {
 }
  
 // Creacion del socket y fijar eventos 
-function crearSocket(nombre, puerto) {
+function crearSocket(nombre) {
 	// Crear el socket de conexion (con parametro para desconectarse al salir de la web)
 	socket = io.connect(url, {
 		'sync disconnect on unload': true,
@@ -331,7 +331,7 @@ function initUsuario() {
 	usuario =  new Usuario($(location).attr('pathname').split('/')[2]);
 	
 	// Crear socket y definir eventos
-	crearSocket(usuario.nombre, port);
+	crearSocket(usuario.nombre);
 
 	// Inicializar boton cerrar sesion de usuario
 	initBtnCerrarSesion();

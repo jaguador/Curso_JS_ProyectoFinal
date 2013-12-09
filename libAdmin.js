@@ -199,7 +199,7 @@ function fijarBotonesDenegarPeticion() {
 }
 
 // Crea socket de conexion y fija eventos
-function creaSocket(usuario, puerto) {
+function creaSocket(usuario) {
 	// Crear el socket de conexion con sincronizacion al salir de la web
 	socket = io.connect(url, {'sync disconnect on unload': true });
 	
@@ -277,7 +277,7 @@ function initAdmin() {
 	admin =  new Admin($(location).attr('pathname').split('/')[2]);
 
 	// Crear socket y escuchar en 
-	creaSocket(admin.nombre, port);
+	creaSocket(admin.nombre);
 	
 	// Informacion de admin y boton de desconectar sesion
 	$('#userinfo').html("Usuario: <b>"+admin.nombre+"</b> &nbsp;&nbsp;<button id='btndesconectar'></button>");
