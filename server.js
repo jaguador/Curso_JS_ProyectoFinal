@@ -9,7 +9,7 @@ var fs = require('fs');		// Acceso al sistema de archivos
 var app = require('express')();		// Libreria express
 var server = require('http').createServer(app);	// Crear servidor
 var io = require('socket.io').listen(server);	// Socket escuchando en servidor
-var puerto=process.argv[2]?process.argv[2]:8080;  // Puerto
+var puerto = proccess.env.PORT || 8080;
 
 // Servidor escuchando en el puerto
 server.listen(puerto);
