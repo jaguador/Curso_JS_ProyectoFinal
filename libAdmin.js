@@ -5,8 +5,8 @@
 * Alumno: al10788								*
 ************************************************/
 
-// Puerto de conexion
-var port = process.env.PORT || 8080; 
+// Url de conexion
+var url = window.location.hostname; 
 
 // Objeto de clase Admin
 var admin;
@@ -201,7 +201,7 @@ function fijarBotonesDenegarPeticion() {
 // Crea socket de conexion y fija eventos
 function creaSocket(usuario, puerto) {
 	// Crear el socket de conexion con sincronizacion al salir de la web
-	socket = io.connect('http://localhost:'+puerto, {'sync disconnect on unload': true });
+	socket = io.connect(url, {'sync disconnect on unload': true });
 	
 	// Al recibir nueva conexion de usuario
 	socket.on('nuevaConexion', function (data) {

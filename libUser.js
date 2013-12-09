@@ -8,8 +8,8 @@
 // Socket de conexion
 var socket;
 
-// Puerto de conexion
-var port = process.env.PORT || 8080; 
+// Url de conexion
+var url = window.location.hostname; 
 
 // Objeto de clase Usuario
 var usuario;
@@ -101,7 +101,7 @@ function initBtnCerrarSesion() {
 // Creacion del socket y fijar eventos 
 function crearSocket(nombre, puerto) {
 	// Crear el socket de conexion (con parametro para desconectarse al salir de la web)
-	socket = io.connect('http://localhost:'+puerto, {
+	socket = io.connect(url, {
 		'sync disconnect on unload': true,
 		transports:['websocket', 'flashsocket', 'htmlfile', 'xhr-multipart', 'xhr-polling', 'jsonp-polling'],
 		rememberTransport:false
