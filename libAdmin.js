@@ -5,10 +5,13 @@
 * Alumno: al10788								*
 ************************************************/
 
+// Puerto de conexion
+var port = 8080; 
+
 // Objeto de clase Admin
 var admin;
 
-// Clase Admin
+/******** Clase Admin ************/
 function Admin(nombre) {
 	this.nombre = nombre;	// Nombre
 	this.usuariosOnline = new Array();	// Lista de usuarios online
@@ -17,6 +20,7 @@ function Admin(nombre) {
 	this.addUsuarioOnline = addUsuarioOnline;		// Añadir un usuario online
 	this.delUsuarioOnline = delUsuarioOnline;		// Eliminar un usuario online
 	this.addPeticion = addPeticion;		// Añadir una nueva peticion
+	this.delPeticion = delPeticion;		// Elimina una peticion
 }
 // Añadir objeto de usuario como usuario conectado {usuario: ..., conectado: ...}
 function addUsuarioOnline(data) {
@@ -34,14 +38,16 @@ function delUsuarioOnline(usuario) {
 function addPeticion(data) {
 	this.peticiones[this.peticiones.length] = data;
 }
-// Eliminar un usuario conectado de la lista
-function delPeticion(usuario, aplicacion, tipo) {
+// Eliminar un usuario conectado de la lista (data: usuario, aplicacion, tipo)
+function delPeticion(data) {
 	for (var i in this.peticiones)  {
-		if (this.peticiones[i].usuario == usuario && this.peticiones[i].aplicacion == aplicacion && this.peticiones[i].tipo == tipo) {
+		if (this.peticiones[i].usuario == data.usuario && this.peticiones[i].aplicacion == data.aplicacion && this.peticiones[i].tipo == data.tipo) {
 			this.peticiones.splice(i, 1);
 		}
 	}
 }
+
+/**********************************/
 
 
 // Muestra mensaje de alerta con titulo, texto y llama a la funcion callback si se especifica
@@ -89,6 +95,7 @@ function fijarBotonesDesconectar() {
 	});
 }
 
+// Fija las acciones para los botones de enviar mensaje a usuarios
 function fijarBotonesEnviarMensaje() {
 	// Botones de enviar mensaje
 	$(".btnMensaje").button({
@@ -100,6 +107,7 @@ function fijarBotonesEnviarMensaje() {
 	});	
 	$(".btnMensaje").click(function (e) {	// Evento click boton mensaje a usuario
 		var user = $(this)[0].id.split('_')[1]; // Usuario a enviar mensaje
+		// Muestra dialogo para introducir el texto
 		$( "#dlgMensaje" ).dialog({
 		  modal: true,
 		  width: 500,
@@ -126,7 +134,7 @@ function fijarBotonesEnviarMensaje() {
 
 }
 
-
+// Fija las acciones para los botones de confirmar una peticion de usuario
 function fijarBotonesConfirmarPeticion() {
 	// Botones de confirmar la peticion
 	$(".btnPeticionOk").button({
@@ -144,7 +152,11 @@ function fijarBotonesConfirmarPeticion() {
 		$.post('/confirmarpeticion/'+user+'/'+app+'/'+tipo, function(data) {
 			// Si la peticion se ha realizado con exito
 			if (data.resultado == true) { 
+				// Elimina de la lista la peticion
+				var data = {usuario: user, aplicacion: app, tipo: tipo};
+				admin.delPeticion(data);
 				alerta('Informacion', 'Enviada la confirmacion de la peticion al usuario '+user, function () {
+					// Se oculta y elimina la peticion
 					$('#peticion_'+user+'_'+app+'_'+tipo).hide('slow', function(){ $('#peticion_'+user+'_'+app+'_'+tipo).remove(); });				
 				});
 			}
@@ -154,6 +166,7 @@ function fijarBotonesConfirmarPeticion() {
 	});
 }
 
+// Fija las acciones para los botones de denegar una peticion de usuario
 function fijarBotonesDenegarPeticion() {			
 	// Botones de denegar la peticion
 	$(".btnPeticionCancel").button({
@@ -171,7 +184,13 @@ function fijarBotonesDenegarPeticion() {
 		$.post('/denegarpeticion/'+user+'/'+app+'/'+tipo, function(data) {
 			// Si la denegacion se ha realizado con exito
 			if (data.resultado == true) { 
-				alerta('Informacion', 'Enviada la denegacion de la peticion al usuario '+user);
+				// Elimina de la lista la peticion
+				var data = {usuario: user, aplicacion: app, tipo: tipo};
+				admin.delPeticion(data);
+				alerta('Informacion', 'Enviada la denegacion de la peticion al usuario '+user, function () {
+					// Se oculta y elimina la peticion
+					$('#peticion_'+user+'_'+app+'_'+tipo).hide('slow', function(){ $('#peticion_'+user+'_'+app+'_'+tipo).remove(); });				
+				});
 			}
 			else
 				alerta('Error', 'ATENCION: Ha ocurrido un problema al intentar denegar la peticion al usuario '+user);
@@ -179,45 +198,20 @@ function fijarBotonesDenegarPeticion() {
 	});
 }
 
-function inicializaciones() {
-
-	// Rellenar combo de lista de aplicaciones para dialogo de nueva aplicacion
-	$.get('/aplicaciones/', function(data) {
-		for (var i in data) {
-			$('#comboAplicaciones').append(new Option(data[i].literal, data[i].aplicacion));
-		}
-	});
+// Crea socket de conexion y fija eventos
+function creaSocket(usuario, puerto) {
+	// Crear el socket de conexion con sincronizacion al salir de la web
+	socket = io.connect('http://localhost:'+puerto, {'sync disconnect on unload': true });
 	
-	// Informacion de usuario y boton de desconectar sesion
-	$('#userinfo').html("Usuario: <b>"+admin.nombre+"</b> &nbsp;&nbsp;<button id='btndesconectar'></button>");
-	$("#btndesconectar").button({
-	  icons: {primary: "ui-icon-cancel"},
-	  text: false,
-	  label: 'Cerrar sesion'
-	});	
-	$("#btndesconectar").click(function (e) {	// Evento click boton desconectar
-		// Envia al servidor peticion de desconexion del usuario
-		$.post('/desconectar/'+admin.nombre, function(data) {
-			// Si la desconexion se ha realizado con exito
-			if (data.resultado == true) { 
-				$(location).attr('href',data.url);
-			}
-			else
-				alerta('Error', 'ATENCION: Ha ocurrido un problema al intentar desconectar la sesion');
-		});
-	});
-
-}
- 
- 
-function muestraAplicacionesUsuario() {
-	// Crear el socket de conexion
-	socket = io.connect('http://localhost:8080', {'sync disconnect on unload': true });
-	// Nueva conexion de usuario
+	// Al recibir nueva conexion de usuario
 	socket.on('nuevaConexion', function (data) {
-		if (data != admin.nombre) {   // No actuar con la conexion del administrador
+		 // No actuar con la conexion del administrador
+		if (data != admin.nombre) {  
+			// Añade nuevo usuario conectado
 			admin.addUsuarioOnline({usuario: data, conectado: new Date()});
+			// Muestra dialogo de nuevo usuario conectado
 			alerta('Usuario conectado', 'El usuario '+data+' acaba de iniciar sesion en el sistema', function() {
+				// Añade a la lista de usuarios conectados con la hora de conexion
 				var fecha = new Date();
 				var botones = "";
 				if (data != admin.nombre)
@@ -229,6 +223,7 @@ function muestraAplicacionesUsuario() {
 				// Fijaar evento click a botones de enviar mensaje
 				fijarBotonesEnviarMensaje();
 				
+				// Dirige el scroll al nuevo usuario concectado
 				$('html,body').animate({scrollTop: $("#listaUsuariosOnline_"+data).offset().top});
 				$('#listaUsuariosOnline_'+data).animate({backgroundColor: '#00FF00'}, 1000, function () {
 					$(this).animate({backgroundColor: '#f2f5f7'}, 1000);
@@ -236,20 +231,26 @@ function muestraAplicacionesUsuario() {
 			});
 		}
 	});
-	// Desconexion desde administrador
+
+	// Al recibir una desconexion de un usuario
 	socket.on('nuevaDesconexion', function (data) {
+		// Elimina el usuario de usuarios conectados
 		admin.delUsuarioOnline(data);
+		// Muestra dialogo con la salida del usuario
 		alerta('Usuario desconectado', 'El usuario '+data+' acaba de cerrar sesion en el sistema', function() {
-			try {
-				$('html,body').animate({scrollTop: $("#listaUsuariosOnline_"+data).offset().top});
-				$('#listaUsuariosOnline_'+data).hide('slow', function(){ $('#listaUsuariosOnline_'+data).remove(); });
-			} catch(e) {};
+			// Scroll a la lista de usuarios desconectados
+			$('html,body').animate({scrollTop: $("#listaUsuariosOnline_"+data).offset().top});
+			$('#listaUsuariosOnline_'+data).hide('slow', function(){ $('#listaUsuariosOnline_'+data).remove(); });
 		});
 	});
-	// Llegada de nueva peticion de usuario
+	
+	// Al recibir nueva peticion de un usuario
 	socket.on('nuevapeticion', function (data) {
+		// Añade a nueva peticion a la lista
 		admin.addPeticion(data);
+		// Muestra dialogo indicando la nueva peticion
 		alerta('Nueva peticion', 'Se ha recibido una nueva peticion de <b>'+data.tipo+'</b> por el usuario <b>'+data.usuario+'</b>', function() {
+			// Se añade la nueva peticion a la lista
 			$('#ulPeticiones').append("<li id='peticion_"+data.usuario+"_"+data.aplicacion+"_"+data.tipo+"'><b>"+data.usuario+"</b>: "+data.literal+" ("+data.tipo+") &nbsp;&nbsp;<button class='btnPeticionOk' id='btnPeticionOk_"+data.usuario+"_"+data.aplicacion+"_"+data.tipo+"'></button> <button class='btnPeticionCancel' id='btnPeticionCancel_"+data.usuario+"_"+data.aplicacion+"_"+data.tipo+"'></button></li>");
 			// Fijar evento click a botones confirmar peticion
 			fijarBotonesConfirmarPeticion();
@@ -259,32 +260,56 @@ function muestraAplicacionesUsuario() {
 			var color = '#FF0000';
 			if (data.tipo == 'Alta') color = '#00FF00';
 			if (data.tipo == 'Renovacion') color = '#0000FF';
+			// Scroll a la lista de peticiones
 			$('#peticion_'+data.usuario+'_'+data.aplicacion+'_'+data.tipo).animate({backgroundColor: color}, 1000, function () {
 				$(this).animate({backgroundColor: '#f2f5f7'}, 1000);
 			});
 		});
 	});	
-	
-	// Crear el objeto de la clase usuario pasandole el nombre
-	admin =  new Admin($(location).attr('pathname').split('/')[2]);
 
 	// Indicar al socket el nombre de usuario
-	socket.emit('setUsuario', admin.nombre);
+	socket.emit('setUsuario', usuario);
+} 
+ 
+// Inicializar componentes y llamadas jquery 
+function initAdmin() {
+	// Crear el objeto de la clase admin pasandole el nombre
+	admin =  new Admin($(location).attr('pathname').split('/')[2]);
 
-	// Inicializaciones: cerrar sesion antes de salir, combo lista apps, boton cerrar sesion
-	inicializaciones();
+	// Crear socket y escuchar en 
+	creaSocket(admin.nombre, port);
+	
+	// Informacion de admin y boton de desconectar sesion
+	$('#userinfo').html("Usuario: <b>"+admin.nombre+"</b> &nbsp;&nbsp;<button id='btndesconectar'></button>");
+	$("#btndesconectar").button({	// Boton cerrar sesion admin
+	  icons: {primary: "ui-icon-cancel"},
+	  text: false,
+	  label: 'Cerrar sesion'
+	});	
+	$("#btndesconectar").click(function (e) {	// Evento click boton desconectar sesion de admin
+		// Envia al servidor peticion de desconexion del admin
+		$.post('/desconectar/'+admin.nombre, function(data) {
+			// Si la desconexion se ha realizado con exito
+			if (data.resultado == true) { 
+				$(location).attr('href',data.url);
+			}
+			else
+				alerta('Error', 'ATENCION: Ha ocurrido un problema al intentar desconectar la sesion');
+		});
+	});
 	
 	// Obtener lista usuarios online
  	$.get('/usuariosonline/', function(data) {
-		// Tomar aplicaciones en objeto usuario
+		// Tomar aplicaciones y añadir a objeto admin
 		for (var i in data)
 			admin.addUsuarioOnline(data[i]);
+		// Panel de usuarios online
 		$('#pnlAcordeon').append('<h3>Usuarios Online</h3><div id="divOnline"></div>');
 		var html = "<ul id='ulUsuariosConectados'>";
+		// Recorre todos los usuarios conectados y crea elemento li
 		for (var i in admin.usuariosOnline) {
 			var fecha = new Date(admin.usuariosOnline[i].conectado);
 			var botones = "";
-			//alert('data: '+data+', admin.nombre: '+admin.nombre);
 			if (admin.usuariosOnline[i].usuario != admin.nombre)
 				botones =  "&nbsp;&nbsp;<button class='btnDesconectar' id='btnDesconectar_"+admin.usuariosOnline[i].usuario+"'></button> <button class='btnMensaje' id='btnMensaje_"+admin.usuariosOnline[i].usuario+"'></button>";
 			html += "<li id='listaUsuariosOnline_"+admin.usuariosOnline[i].usuario+"'><b>"+admin.usuariosOnline[i].usuario+"</b> (desde: "+fecha.toLocaleDateString()+" "+fecha.toLocaleTimeString()+")  "+botones+ "</li>";
@@ -299,7 +324,6 @@ function muestraAplicacionesUsuario() {
 
 		// Boton de desconectar a todos los usuarios
 		$('#divOnline').append(" <button id='btnDesconectarTodos'>Desconectar a todos los usuarios conectados</button>");
-		// Boton de desconectar
 		$("#btnDesconectarTodos").button({
 		  icons: {
 			primary: "ui-icon-cancel"
@@ -307,8 +331,10 @@ function muestraAplicacionesUsuario() {
 		  text: true,
 		  label: 'Desconectar a todos los usuarios'
 		});		
+		// Evento click de boton desconectar a todos
 		$("#btnDesconectarTodos").click(function (e) {
 			var listaUsers = "";
+			// Recorrer todos los usuarios online
 			for (var i in admin.usuariosOnline) {
 				if (admin.usuariosOnline[i].usuario != admin.nombre) { // Todos menos el administrador
 					var user = admin.usuariosOnline[i].usuario; // Usuario a desconectar
@@ -326,7 +352,6 @@ function muestraAplicacionesUsuario() {
 		
 		// Boton de mensaje a todos los usuarios
 		$('#divOnline').append(" &nbsp;&nbsp;<button id='btnMensajeTodos'>Mandar mensaje a todos usuarios</button>");
-		// Boton de desconectar
 		$("#btnMensajeTodos").button({
 		  icons: {
 			primary: "ui-icon-comment"
@@ -334,21 +359,24 @@ function muestraAplicacionesUsuario() {
 		  text: true,
 		  label: 'Mensaje a todos los usuarios'
 		});		
-		$("#btnMensajeTodos").click(function (e) {	// Evento click boton mensaje a usuario
+		// Evento click de enviar mensaje a todos los usuarios
+		$("#btnMensajeTodos").click(function (e) {	
+			// Dialogo de enviar mensaje
 			$( "#dlgMensaje" ).dialog({
 			  modal: true,
 			  width: 500,
 			  buttons: {
 				"Aceptar": function() {					
 					var listaUsers = "";
+					// Recorrer todos los usuarios online
 					for (var i in admin.usuariosOnline) {
 						if (admin.usuariosOnline[i].usuario != admin.nombre) { // Todos menos el administrador
 							var user = admin.usuariosOnline[i].usuario; // Usuario a enviar mensaje
 							listaUsers += "<br/>"+user;
-							// Envia al servidor peticion de desconexion del usuario
+							// Envia al servidor mensaje a cada usuario
 							var msg = $('#inputMensaje').val();
 							$.post('/mensaje/'+user+'/'+msg, function(data) {
-								// En la ultima peticion se muestra dialogo de usuarios desconectados
+								// En la ultima peticion se muestra dialogo de usuarios a los que se ha enviado mensaje
 								if (i == (admin.usuariosOnline.length -1))
 								// Si la desconexion se ha realizado con exito
 								$( "#dlgMensaje" ).dialog("close");
@@ -371,9 +399,10 @@ function muestraAplicacionesUsuario() {
 		
 		// Obtener lista peticiones pendientes
 		$.get('/peticionespendientes/', function(data) {
-			// Tomar peticiones en objeto usuario
+			// Añadir peticiones en objeto admin
 			for (var i in data)
 				admin.addPeticion(data[i]);
+			// Crear elemento de lista con la peticion
 			$('#pnlAcordeon').append('<h3>Peticiones Pendientes</h3><div id="divPendientes"></div>');
 			var html = "<ul id='ulPeticiones'>";
 			for (var i in admin.peticiones) 
@@ -387,7 +416,7 @@ function muestraAplicacionesUsuario() {
 			// Fijar evento click a botones de denegar peticion
 			fijarBotonesDenegarPeticion();
 		});
-
 	});
+
 }
 

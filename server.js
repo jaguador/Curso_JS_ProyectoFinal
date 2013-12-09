@@ -31,9 +31,6 @@ var solicitudesRenovar = new Array();
 // Array para guardar los sockets de los usuarios
 var userSockets = new Array();
 		
-// Tiempo de validez de sesion (timeout)
-var timeout = 900000;   // 15 minutos
-
 /*  FUNCION AUXILIAR PARA VALIDAR USUARIO CONECTADO (ENTRADA POR LOGIN) */
 function validarUsuario(user) {
 	var resultado = {};
@@ -51,14 +48,8 @@ function validarUsuario(user) {
 				// Tiene la propiedad establecida a false
 				if (usuarios[i].autorizado == false) 
 					resultado.msg = "Acceso denegado: No se ha autorizado el acceso.  <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
-				else {
-					// Superado timeout establecido desde el ultimo acceso
-					var tiempo = Date.now() - usuarios[i].ultimoAcceso;
-					if (tiempo > timeout)
-						resultado.msg = "Acceso denegado: Se ha superado el tiempo de inactividad.  <br/>Volver a pantalla de <b><a href='/'>Login</a></b>";
-					else
-						resultado.auth = true;
-				}
+				else 
+					resultado.auth = true;
 			}
 			break;
 		}
@@ -69,7 +60,6 @@ function validarUsuario(user) {
 
 /* INICIALIZACION DEL SOCKET: NUEVA CONEXION */
 io.sockets.on('connection', function (socket) {	
-	
 	// Tomar el socket segun el nombre de usuario
 	socket.on('setUsuario', function (usuario) {
 		// Comprobar que es conexion valida (ha hecho login)
@@ -98,7 +88,7 @@ io.sockets.on('connection', function (socket) {
 			usuarios[i].autorizado = false;
 			usuarios[i].ultimoAcceso = Date.now();
 			delete userSockets[socket.usuario]; 
-			console.log('desconectado: '+socket.usuario);	
+			// Enviar desconexion de usuario si el admin esta conectado
 			if (userSockets['admin'] != undefined) 
 				userSockets['admin'].emit('nuevaDesconexion', socket.usuario);	 // Mensaje de desconexion al admin
 		}
@@ -144,6 +134,30 @@ app.get('/', function (req, res) {
 	res.send(loginWeb);
 });
 
+/* ACCESO AL PANEL DE ADMINISTRACION */
+app.get('/admin/:usuario', function (req, res) {   
+	// Si esta autorizado se sirve html del panel de administracion
+	var autorizacion = validarUsuario(req.params.usuario);
+	if (autorizacion.auth)
+	    res.send(adminWeb);
+	// Si no esta autorizado se indica
+	else
+	    res.send(autorizacion.msg);
+});
+
+/* ACCESO A LA WEB DE USUARIO */
+app.get('/app/:usuario', function (req, res) {   
+	// Comprobar si esta autorizado al acceso se sirve
+	var autorizacion = validarUsuario(req.params.usuario);
+	if (autorizacion.auth)
+	    res.send(appWeb);
+	// Si no esta autorizado se indica
+	else {
+		var datos = {msg: 'Acceso no autorizado', url: '/'};
+	    res.send(autorizacion.msg);
+	}
+});
+
 /* PLANTILLA COMUN DE APLICACION (TABS)*/
 app.get('/aplicacion_tpl', function (req, res) { 
     // Servir html de plantilla
@@ -168,60 +182,6 @@ app.get('/usuarios', function (req, res) {
 app.get('/aplicaciones', function (req, res) {   
     // Servir json de aplicaciones
 	res.send(aplicaciones_json);
-});
-
-/* ACCESO AL PANEL DE ADMINISTRACION */
-app.get('/admin/:usuario', function (req, res) {   
-	// Si esta autorizado se sirve html del panel de administracion
-	var autorizacion = validarUsuario(req.params.usuario);
-	if (autorizacion.auth)
-	    res.send(adminWeb);
-	// Si no esta autorizado se indica
-	else
-	    res.send(autorizacion.msg);
-});
-
-/* OBTENER LISTADO DE USUARIOS CONECTADOS */
-app.get('/usuariosonline', function (req, res) {   
-	// Recorrer lista de usuarios y comprobar los autorizados
-	var online = new Array();
-	for (var i in usuarios) {
-		if (usuarios[i].autorizado != undefined) {
-			// Si esta autorizado el acceso se añade
-			if (usuarios[i].autorizado == true) {
-				online[online.length] = {usuario: usuarios[i].usuario, conectado: usuarios[i].ultimoAcceso};
-			}
-		}
-	}
-	res.send(online);
-});
-
-/* OBTENER LISTADO DE PETICIONES PENDIENTES DE ATENDER */
-app.get('/peticionespendientes', function (req, res) { 
-	var solicitudes = new Array();
-	// Solicitudes de baja
-	for (var i in solicitudesBaja) 
-		solicitudes[solicitudes.length] = {usuario: solicitudesBaja[i].usuario, aplicacion: solicitudesBaja[i].aplicacion, literal: aplicaciones_array[solicitudesBaja[i].aplicacion], tipo: 'Baja'};
-	// Solicitudes de alta
-	for (var i in solicitudesAlta) 
-		solicitudes[solicitudes.length] = {usuario: solicitudesAlta[i].usuario, aplicacion: solicitudesAlta[i].aplicacion, literal: aplicaciones_array[solicitudesAlta[i].aplicacion], tipo: 'Alta'};
-	// Solicitudes de renovacion
-	for (var i in solicitudesRenovar) 
-		solicitudes[solicitudes.length] = {usuario: solicitudesRenovar[i].usuario, aplicacion: solicitudesRenovar[i].aplicacion, literal: aplicaciones_array[solicitudesRenovar[i].aplicacion], tipo: 'Renovacion'};
-	res.send(solicitudes);
-});
-
-/* ACCESO A LA WEB DE USUARIO */
-app.get('/app/:usuario', function (req, res) {   
-	// Comprobar si esta autorizado al acceso se sirve
-	var autorizacion = validarUsuario(req.params.usuario);
-	if (autorizacion.auth)
-	    res.send(appWeb);
-	// Si no esta autorizado se indica
-	else {
-		var datos = {msg: 'Acceso no autorizado', url: '/'};
-	    res.send(autorizacion.msg);
-	}
 });
 
 /* OBTENER LISTADO DE APLICACIONES DISPONIBLES DEL USUARIO */
@@ -262,6 +222,36 @@ app.get('/aplicacionesusuario/:usuario', function (req, res) {
 		}
 		res.send(listaApps);
 	}
+});
+
+/* OBTENER LISTADO DE USUARIOS CONECTADOS */
+app.get('/usuariosonline', function (req, res) {   
+	// Recorrer lista de usuarios y comprobar los autorizados
+	var online = new Array();
+	for (var i in usuarios) {
+		if (usuarios[i].autorizado != undefined) {
+			// Si esta autorizado el acceso se añade
+			if (usuarios[i].autorizado == true) {
+				online[online.length] = {usuario: usuarios[i].usuario, conectado: usuarios[i].ultimoAcceso};
+			}
+		}
+	}
+	res.send(online);
+});
+
+/* OBTENER LISTADO DE PETICIONES PENDIENTES DE ATENDER */
+app.get('/peticionespendientes', function (req, res) { 
+	var solicitudes = new Array();
+	// Solicitudes de baja
+	for (var i in solicitudesBaja) 
+		solicitudes[solicitudes.length] = {usuario: solicitudesBaja[i].usuario, aplicacion: solicitudesBaja[i].aplicacion, literal: aplicaciones_array[solicitudesBaja[i].aplicacion], tipo: 'Baja'};
+	// Solicitudes de alta
+	for (var i in solicitudesAlta) 
+		solicitudes[solicitudes.length] = {usuario: solicitudesAlta[i].usuario, aplicacion: solicitudesAlta[i].aplicacion, literal: aplicaciones_array[solicitudesAlta[i].aplicacion], tipo: 'Alta'};
+	// Solicitudes de renovacion
+	for (var i in solicitudesRenovar) 
+		solicitudes[solicitudes.length] = {usuario: solicitudesRenovar[i].usuario, aplicacion: solicitudesRenovar[i].aplicacion, literal: aplicaciones_array[solicitudesRenovar[i].aplicacion], tipo: 'Renovacion'};
+	res.send(solicitudes);
 });
 
 
@@ -372,11 +362,11 @@ app.post('/desconectar/:usuario', function (req, res) {
 	    res.send({resultado: false});
 	else {	
 		// Establece la propiedad autorizado a false
-		for (var i in usuarios) 
+/*		for (var i in usuarios) 
 			if (usuarios[i].usuario == req.params.usuario) 
 				usuarios[i].autorizado = false;
 		// Redirecciona a pantalla de login
-		res.send({resultado: true, url: '/'});
+*/		res.send({resultado: true, url: '/'});
 	}
 });
 
