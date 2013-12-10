@@ -17,7 +17,7 @@ var argv = optimist
     .options('c', {
 		alias : 'connect',
 		describe : 'Indica el servidor y puerto del servidor al que se conectara en formato direcion:puerto',
-		default : 'http://al10788-proyecto.herokuapp.com:80'
+		default : 'http://rocky-spire-6999.herokuapp.com:80'
 	})
     .options('o', {
 		boolean : true,
