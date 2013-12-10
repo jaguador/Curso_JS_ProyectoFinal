@@ -277,26 +277,34 @@ app.get('/peticionespendientes', function (req, res) {
 /***************** POST **********************/
 /* PETICION DE ACCESO AL SISTEMA: LOGIN */
 app.post('/login/:usuario/:password', function (req, res) {
-	var auth = false;
-	// Localizar usuario
-	for (var i in usuarios) {
-		// Comprobar usuario y contraseña y establecer propiedad autorizado
-		if (usuarios[i].usuario == req.params.usuario) {
-			if (usuarios[i].password == req.params.password) {
-				auth = true;
-				usuarios[i].autorizado = auth;
-				usuarios[i].ultimoAcceso = Date.now();
-			} else {
-				usuarios[i].autorizado = false;
+	// Confirmar si el usuario ya se ha logueado
+	var autorizacion = validarUsuario(req.params.usuario);
+	// Si ya esta logueado no se permite nueva sesion
+	if (autorizacion.auth)
+	    res.send({resultado: false, msg: "<p>ATENCION: Ya existe una sesion del usuario en el sistema</p>"});
+	else {
+		var msg = "<p>ATENCION: La combinacion usuario/password no es correcta. <br>Se ha denegado el acceso</p>";
+		var auth = false;
+		// Localizar usuario
+		for (var i in usuarios) {
+			// Comprobar usuario y contraseña y establecer propiedad autorizado
+			if (usuarios[i].usuario == req.params.usuario) {
+				if (usuarios[i].password == req.params.password) {
+					auth = true;
+					usuarios[i].autorizado = auth;
+					usuarios[i].ultimoAcceso = Date.now();
+				} else {
+					usuarios[i].autorizado = false;
+				}
 			}
-		}
-	}	
-	// Redireccion usuario admin --> web admin
-	if (req.params.usuario == "admin")
-		res.send({resultado: auth, url: '/admin/'+req.params.usuario});
-	// Redireccion usuario --> web usuario
-	else
-		res.send({resultado: auth, url: '/app/'+req.params.usuario});
+		}	
+		// Redireccion usuario admin --> web admin
+		if (req.params.usuario == "admin")
+			res.send({resultado: auth, url: '/admin/'+req.params.usuario, msg: msg});
+		// Redireccion usuario --> web usuario
+		else
+			res.send({resultado: auth, url: '/app/'+req.params.usuario, msg: msg});
+	}
 });
 
 /* REGISTRAR SOLICITUD DE BAJA DE UNA APLICACION */

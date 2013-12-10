@@ -71,7 +71,7 @@ if (argv.o) {
 				console.log(data[i].usuario+' (desde: '+fecha.toLocaleDateString()+' '+fecha.toLocaleTimeString()+') ');
 			}
 		}
-	}).on('error' , function (data) {console.log('Se ha producido un error en la conexion al servidor. \nCodigo error: '+data.errno)});  
+	}).on('error' , function (data) {console.log('Se ha producido un error en la conexion al servidor. \nCodigo error: '+data)});  
 }
 
 /* DESCONECTAR USUARIOS */

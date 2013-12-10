@@ -61,6 +61,7 @@ function doLogin(usuario, password) {
 		}
 		// En caso contrario se muestra mensaje de alerta de login incorrecto
 		else {
+			$( "#dlgInformacion" ).html(data.msg);
 			$( "#dlgInformacion" ).dialog({
 			  modal: true,
 			  width: 400,
