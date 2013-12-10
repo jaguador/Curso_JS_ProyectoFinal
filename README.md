@@ -4,7 +4,6 @@ Curso_JS_ProyectoFinal
 <h1>Curso "Programación cliente-servidor en Javascript"</h1>
 <h2>Proyecto final: Intranet de usuarios y panel de administración</h2>
 <hr>
-<p>El proyecto ha sido desarrollado basándome en un caso real que se pretende implementar en la intranet del Ayuntamiento en el que trabajo. Se persigue trasladar el actual cliente de acceso de los usuarios a las aplicaciones disponibles basado en Delphi (y que actualmente está dando problemas de compatibilidad con los nuevos equipos con Windows 7 y 8) a un cliente basado en una interfaz web que sea independiente de la plataforma y diferentes Sistemas Operativos. En un primer paso una de las problemáticas a afrontar era el acceso de los usuarios a las aplicaciones disponibles según sus privilegios y la gestión de los mismos. Con este proyecto se pretende, salvando las diferencias obvias con el sistema real de producción, realizar una aproximación a una posible solución al problema planteado.</p>
 <h3>Aspectos tecnológicos</h3>
 <ul>
 <li>Módulos node.js utilizados: 
@@ -45,7 +44,7 @@ Curso_JS_ProyectoFinal
 <h2>Documentación</h2>
 <p>A continuación se describirán las diferentes secciones de las que se compone el proyecto:</p>
 <h3>Acceso al sistema: Login</h3>
-<p>Al cargar la url principal de acceso al sistema <a href="http://rocky-spire-6999.herokuapp.com/">http://rocky-spire-6999.herokuapp.com/</a> , se presenta la pantalla de login en la cual se mostrarán los usuarios disponibles y habrá que seleccionar el usuario con el que se desea acceder al sistema e introducir su password (en este caso el password es el mismo que el número de usuario) y pulsar la tecla 'Enter'. Igualmente, en la parte inferior, se muestra el acceso para el usuario administrador del sistema (con password admin)</p>
+<p>Al cargar la url principal de acceso al sistema se presenta la pantalla de login en la cual se mostrarán los usuarios disponibles y habrá que seleccionar el usuario con el que se desea acceder al sistema e introducir su password (en este caso el password es el mismo que el número de usuario) y pulsar la tecla 'Enter'. Igualmente, en la parte inferior, se muestra el acceso para el usuario administrador del sistema (con password admin)</p>
 </br>
 <h3>Panel de Administración</h3>
 <p>Cuando el usuario administrador inicia sesión en el sistema, automáticamente se le redirecciona al panel de administración. En dicho panel se podrán diferenciar los 2 grupos de acciones principales que podrá gestionar:</p>
@@ -96,5 +95,5 @@ Options:
 <br/><br/>
 <hr>
 <p><b>Julio Aguado Robles<br/>
-Usuario GitHub: jaguador</br> Alumno: al10788</b></p>
+Usuario GitHub: jaguador<br/> Alumno: al10788</b></p>
 
