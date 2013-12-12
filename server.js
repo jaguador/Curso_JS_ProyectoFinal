@@ -16,6 +16,12 @@ var puerto = process.env.PORT || 8080;
 server.listen(puerto);
 console.log('Servidor ejecutandose en http://127.0.0.1:'+puerto+'/');
 
+// Configuracion añadida para habilitar sockets en heroku
+io.configure(function () {
+    io.set("transports", ["xhr-polling"]);
+    io.set("polling duration", 10)
+});
+
 // Lectura de datos estaticos para inicializacion (datos de ejemplo)
 var usuarios = require('./usuarios.json');		// Listado de usuarios
 var aplicaciones_json = require('./aplicaciones.json'); 	// Listado de aplicaciones
